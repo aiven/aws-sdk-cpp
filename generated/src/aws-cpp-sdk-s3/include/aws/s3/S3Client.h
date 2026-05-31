@@ -99,6 +99,10 @@ class AWS_S3_API S3Client : public Aws::Client::AWSXMLClient,
            std::shared_ptr<S3EndpointProviderBase> endpointProvider = nullptr,
            const Aws::S3::S3ClientConfiguration& clientConfiguration = Aws::S3::S3ClientConfiguration());
 
+  S3Client(const std::shared_ptr<Aws::Auth::AWSAuthSignerProvider>& authSignerProvider,
+           std::shared_ptr<S3EndpointProviderBase> endpointProvider = nullptr,
+           const Aws::S3::S3ClientConfiguration& clientConfiguration = Aws::S3::S3ClientConfiguration());
+
   /* Legacy constructors due deprecation */
   /**
    * Initializes client to use DefaultCredentialProviderChain, with default http client factory, and optional client config. If client

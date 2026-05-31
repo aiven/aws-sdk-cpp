@@ -295,20 +295,13 @@ bool AWSAuthV4Signer::SignRequestWithCreds(Aws::Http::HttpRequest& request, cons
 
     AWS_LOGSTREAM_DEBUG(v4LogTag, "Canonical Request String: " << canonicalRequestString);
 
-    //now compute sha256 on that request string
-    auto sha256Digest = HashingUtils::CalculateSHA256(canonicalRequestString);
-    if (sha256Digest.GetLength() == 0)
+    Aws::String simpleDate = now.ToGmtString(Aws::Auth::AWSAuthHelper::SIMPLE_DATE_FORMAT_STR);
+    auto finalSignature = GenerateSignature(canonicalRequestString, dateHeaderValue, simpleDate, signingRegion, signingServiceName, credentials);
+    if (finalSignature.empty())
     {
-        AWS_LOGSTREAM_ERROR(v4LogTag, "Failed to hash (sha256) request string");
-        AWS_LOGSTREAM_DEBUG(v4LogTag, "The request string is: \"" << canonicalRequestString << "\"");
+        AWS_LOGSTREAM_ERROR(v4LogTag, "Failed to sign request");
         return false;
     }
-
-    Aws::String canonicalRequestHash = HashingUtils::HexEncode(sha256Digest);
-    Aws::String simpleDate = now.ToGmtString(Aws::Auth::AWSAuthHelper::SIMPLE_DATE_FORMAT_STR);
-
-    Aws::String stringToSign = GenerateStringToSign(dateHeaderValue, simpleDate, canonicalRequestHash, signingRegion, signingServiceName);
-    auto finalSignature = GenerateSignature(credentials, stringToSign, simpleDate, signingRegion, signingServiceName);
 
     Aws::StringStream ss;
     ss << Aws::Auth::AWSAuthHelper::AWS_HMAC_SHA256 << " " << Aws::Auth::AWSAuthHelper::CREDENTIAL << Aws::Auth::AWSAuthHelper::EQ << credentials.GetAWSAccessKeyId() << "/" << simpleDate
@@ -426,19 +419,7 @@ bool AWSAuthV4Signer::PresignRequest(Aws::Http::HttpRequest& request, const Aws:
     }
     AWS_LOGSTREAM_DEBUG(v4LogTag, "Canonical Request String: " << canonicalRequestString);
 
-    //now compute sha256 on that request string
-    auto sha256Digest = HashingUtils::CalculateSHA256(canonicalRequestString);
-    if (sha256Digest.GetLength() == 0)
-    {
-        AWS_LOGSTREAM_ERROR(v4LogTag, "Failed to hash (sha256) request string");
-        AWS_LOGSTREAM_DEBUG(v4LogTag, "The request string is: \"" << canonicalRequestString << "\"");
-        return false;
-    }
-
-    auto canonicalRequestHash = HashingUtils::HexEncode(sha256Digest);
-
-    auto stringToSign = GenerateStringToSign(dateQueryValue, simpleDate, canonicalRequestHash, signingRegion, signingServiceName);
-    auto finalSigningHash = GenerateSignature(credentials, stringToSign, simpleDate, signingRegion, signingServiceName);
+    auto finalSigningHash = GenerateSignature(canonicalRequestString, dateQueryValue, simpleDate, signingRegion, signingServiceName, credentials);
     if (finalSigningHash.empty())
     {
         return false;
@@ -450,7 +431,26 @@ bool AWSAuthV4Signer::PresignRequest(Aws::Http::HttpRequest& request, const Aws:
     return true;
 }
 
-
+Aws::String AWSAuthV4Signer::GenerateSignature(
+    const Aws::String & canonicalRequestString,
+    const Aws::String & date,
+    const Aws::String & simpleDate,
+    const Aws::String & signingRegion,
+    const Aws::String & signingServiceName,
+    const AWSCredentials& credentials) const
+{
+    //now compute sha256 on that request string
+    auto sha256Digest = HashingUtils::CalculateSHA256(canonicalRequestString);
+    if (sha256Digest.GetLength() == 0)
+    {
+        AWS_LOGSTREAM_ERROR(v4LogTag, "Failed to hash (sha256) request string");
+        AWS_LOGSTREAM_DEBUG(v4LogTag, "The request string is: \"" << canonicalRequestString << "\"");
+        return "";
+    }
+    auto canonicalRequestHash = HashingUtils::HexEncode(sha256Digest);
+    auto stringToSign = GenerateStringToSign(date, simpleDate, canonicalRequestHash, signingRegion, signingServiceName);
+    return GenerateSignature(credentials, stringToSign, simpleDate, signingRegion, signingServiceName);
+}
 
 bool AWSAuthV4Signer::PresignRequest(Aws::Http::HttpRequest& request, const char* region, const char* serviceName, long long expirationTimeInSeconds) const
 {
