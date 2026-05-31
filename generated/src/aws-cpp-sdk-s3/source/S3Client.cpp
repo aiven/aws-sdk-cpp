@@ -245,6 +245,16 @@ S3Client::S3Client(const std::shared_ptr<AWSCredentialsProvider>& credentialsPro
   init(m_clientConfiguration);
 }
 
+S3Client::S3Client(const std::shared_ptr<Aws::Auth::AWSAuthSignerProvider>& authSignerProvider,
+                   std::shared_ptr<S3EndpointProviderBase> endpointProvider, const S3::S3ClientConfiguration& clientConfiguration)
+    : BASECLASS(clientConfiguration,
+                authSignerProvider,
+                Aws::MakeShared<S3ErrorMarshaller>(ALLOCATION_TAG)),
+      m_clientConfiguration(clientConfiguration),
+      m_endpointProvider(endpointProvider ? std::move(endpointProvider) : Aws::MakeShared<S3EndpointProvider>(ALLOCATION_TAG)) {
+  init(m_clientConfiguration);
+}
+
 /* Legacy constructors due deprecation */
 S3Client::S3Client(const Aws::Client::ClientConfiguration& clientConfiguration,
                    Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy signPayloads /*= Never*/, bool useVirtualAddressing /*= true*/,
